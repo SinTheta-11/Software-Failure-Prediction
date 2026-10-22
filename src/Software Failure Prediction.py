@@ -16,6 +16,10 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import mean_squared_error, r2_score, precision_recall_fscore_support
 import numpy as np
 import matplotlib.pyplot as plt
@@ -152,35 +156,34 @@ print(df4.describe())
 
 
 import seaborn as sns
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
-# Create boxplots for all datasets
-fig, axs = plt.subplots(2, 2, figsize=(15, 12))
-fig.suptitle('Boxplots of Datasets', fontsize=16)
+# Create vertically aligned subplots: 4 rows, 1 column
+fig, axs = plt.subplots(4, 1, figsize=(20, 60))  # Larger and tall layout
+fig.suptitle('Boxplots of Datasets', fontsize=22)
 
 # Plot boxplot for Dataset 1
-sns.boxplot(data=df1, ax=axs[0, 0])
-axs[0, 0].set_title('Dataset 1 Boxplot')
-axs[0, 0].tick_params(axis='x', rotation=45)
+sns.boxplot(data=df1, ax=axs[0])
+axs[0].set_title('Dataset 1 Boxplot', fontsize=16)
+axs[0].tick_params(axis='x', rotation=90)
 
 # Plot boxplot for Dataset 2
-sns.boxplot(data=df2, ax=axs[0, 1])
-axs[0, 1].set_title('Dataset 2 Boxplot')
-axs[0, 1].tick_params(axis='x', rotation=45)
+sns.boxplot(data=df2, ax=axs[1])
+axs[1].set_title('Dataset 2 Boxplot', fontsize=16)
+axs[1].tick_params(axis='x', rotation=90)
 
 # Plot boxplot for Dataset 3
-sns.boxplot(data=df3, ax=axs[1, 0])
-axs[1, 0].set_title('Dataset 3 Boxplot')
-axs[1, 0].tick_params(axis='x', rotation=45)
+sns.boxplot(data=df3, ax=axs[2])
+axs[2].set_title('Dataset 3 Boxplot', fontsize=16)
+axs[2].tick_params(axis='x', rotation=90)
 
 # Plot boxplot for Dataset 4
-sns.boxplot(data=df4, ax=axs[1, 1])
-axs[1, 1].set_title('Dataset 4 Boxplot')
-axs[1, 1].tick_params(axis='x', rotation=45)
+sns.boxplot(data=df4, ax=axs[3])
+axs[3].set_title('Dataset 4 Boxplot', fontsize=16)
+axs[3].tick_params(axis='x', rotation=90)
 
-# Adjust spacing between subplots
-plt.subplots_adjust(hspace=0.4, wspace=0.3)
-
+# Adjust spacing
+plt.tight_layout(rect=[0, 0.03, 1, 0.97])  # Leave space for suptitle
 plt.show()
 
 
@@ -192,29 +195,46 @@ plt.show()
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Prepare subplots for comparison
-fig, axs = plt.subplots(4, 2, figsize=(15, 20))  # 4 rows, 2 columns
+# 1) Make the figure tall enough that each subplot is roughly square:
+#    With 4 rows × 2 columns, each subplot is ~figsize[0]/2 wide and figsize[1]/4 tall.
+#    To get width≈height, set figsize[1] ≈ figsize[0]*(4/2) = figsize[0]*2
+fig, axs = plt.subplots(4, 2, figsize=(24, 48))  # width=24, height=48
 
-# Iterate over datasets to remove outliers and plot results
-for i, df in enumerate([df1, df2, df3, df4], start=1):
+fig.suptitle('Outlier Removal Comparison (Boxplots)', fontsize=24)
+
+datasets = [df1, df2, df3, df4]
+dataset_names = ['Dataset 1', 'Dataset 2', 'Dataset 3', 'Dataset 4']
+
+for row, (df, name) in enumerate(zip(datasets, dataset_names)):
     # Before removing outliers
-    sns.boxplot(data=df, ax=axs[i-1, 0])
-    axs[i-1, 0].set_title(f'Dataset {i} - Before Outlier Removal')
-    axs[i-1, 0].tick_params(axis='x', rotation=45)  # Rotate x-axis labels
+    ax_before = axs[row, 0]
+    sns.boxplot(data=df, ax=ax_before)
+    ax_before.set_title(f'{name} – Before', fontsize=16)
+    ax_before.tick_params(axis='x', rotation=90, labelsize=10)
+    
+    # 2) Force square axes:
+    ax_before.set_box_aspect(1)
 
-    # Calculate IQR and remove outliers
+    # Remove outliers via IQR
     Q1 = df.quantile(0.25)
     Q3 = df.quantile(0.75)
     IQR = Q3 - Q1
     df_cleaned = df[~((df < (Q1 - 1.5 * IQR)) | (df > (Q3 + 1.5 * IQR))).any(axis=1)]
 
     # After removing outliers
-    sns.boxplot(data=df_cleaned, ax=axs[i-1, 1])
-    axs[i-1, 1].set_title(f'Dataset {i} - After Outlier Removal')
-    axs[i-1, 1].tick_params(axis='x', rotation=45)
+    ax_after = axs[row, 1]
+    sns.boxplot(data=df_cleaned, ax=ax_after)
+    ax_after.set_title(f'{name} – After', fontsize=16)
+    ax_after.tick_params(axis='x', rotation=90, labelsize=10)
+    
+    # Force square axes here as well
+    ax_after.set_box_aspect(1)
 
-# Adjust spacing between subplots
-plt.tight_layout()
+# Increase space between subplots
+plt.subplots_adjust(hspace=0.6, wspace=0.4)
+
+# Tight layout but leave room for suptitle
+plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 plt.show()
 
 
@@ -243,7 +263,7 @@ for i, df in enumerate([df1, df2, df3, df4], start=1):
     stats_df.plot(kind='bar', figsize=(10, 6))
     plt.title(f'Dataset {i} - Mean, Median, and Percentiles')
     plt.ylabel('Values')
-    plt.xticks(rotation=45)
+    plt.xticks(rotation=90)
     plt.tight_layout()
     plt.show()
 
@@ -283,14 +303,14 @@ for i, df in enumerate([df1, df2, df3, df4], start=1):
     stats_df.plot(kind='bar', figsize=(10, 6))
     plt.title(f'Dataset {i} - Mean, Trimmed Mean, Median, and Percentiles')
     plt.ylabel('Values')
-    plt.xticks(rotation=45)
+    plt.xticks(rotation=90)
     plt.tight_layout()
     plt.show()
 
 
 # Purpose: In this step, we perform correlation analysis to identify relationships between variables. A correlation matrix is created to show how strongly different variables are related to each other. This helps in understanding which features are most important and which ones are redundant.
 
-# In[14]:
+# In[44]:
 
 
 import seaborn as sns
@@ -298,24 +318,65 @@ import matplotlib.pyplot as plt
 
 # Create a correlation matrix heatmap for each dataset
 for i, df in enumerate([df1, df2, df3, df4], start=1):
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(20, 16))  # Significantly larger figure
 
     # Generate a correlation matrix
     corr_matrix = df.corr()
 
-    # Plot heatmap
-    sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt='.2f', linewidths=0.5)
-    plt.title(f'Dataset {i} Correlation Matrix')
-
-    # Show the heatmap
+    # Plot heatmap with even smaller annotation font
+    sns.heatmap(
+        corr_matrix,
+        annot=True,
+        cmap='coolwarm',
+        fmt='.2f',
+        linewidths=0.5,
+        annot_kws={"size": 9}  # Smaller text for tight spaces
+    )
+    plt.title(f'Dataset {i} Correlation Matrix', fontsize=16)
+    plt.xticks(rotation=45, ha='right', fontsize=8)
+    plt.yticks(rotation=0, fontsize=8)
     plt.tight_layout()
     plt.show()
+
+
+
+# # Finding Highly Positively Correlated Features 
+
+# In[15]:
+
+
+# List of datasets and their names
+datasets = [(df1, "KC1"), (df2, "MW1"), (df3, "PC5"), (df4, "MC1")]
+threshold = 0.9  # Positive correlation threshold
+
+for df, name in datasets:
+    print(f"\n🔍 Highly positively correlated features in {name} (correlation ≥ {threshold}):")
+
+    numeric_df = df.select_dtypes(include='number')
+    corr_matrix = numeric_df.corr()  # <-- no .abs()
+
+    # Exclude self-correlations using upper triangle only
+    upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
+
+    # Find pairs with correlation ≥ threshold
+    high_corr = [
+        (col1, col2, upper.loc[col1, col2])
+        for col1 in upper.columns
+        for col2 in upper.columns
+        if upper.loc[col1, col2] >= threshold
+    ]
+
+    if high_corr:
+        for col1, col2, value in sorted(high_corr, key=lambda x: -x[2]):
+            print(f"  {col1} ↔ {col2} : {value:.2f}")
+    else:
+        print("  No highly positively correlated pairs found.")
 
 
 # # Function to preprocess the dataset (handle missing values, scaling, train/test split)
 # 
 
-# In[15]:
+# In[16]:
 
 
 from sklearn.impute import SimpleImputer
@@ -347,7 +408,7 @@ def preprocess_data(dataset, target_column):
 # # Function to evaluate models using precision, recall, f1 score, and other metrics
 # 
 
-# In[16]:
+# In[17]:
 
 
 def evaluate_model(y_true, y_pred):
@@ -360,7 +421,7 @@ def evaluate_model(y_true, y_pred):
 # # Load the datasets
 # 
 
-# In[17]:
+# In[18]:
 
 
 dataset_kc1 = pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-KC1.csv")
@@ -371,7 +432,7 @@ dataset_mc1 = pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-MC1.csv"
 
 # # Preprocess the KC1, JM1, PC5, MC1 datasets
 
-# In[18]:
+# In[19]:
 
 
 X_train_kc1, X_test_kc1, y_train_kc1, y_test_kc1 = preprocess_data(dataset_kc1, 'Defective')
@@ -382,7 +443,7 @@ X_train_mc1, X_test_mc1, y_train_mc1, y_test_mc1 = preprocess_data(dataset_mc1, 
 
 # # Dictionary to store results for both datasets
 
-# In[19]:
+# In[20]:
 
 
 results_kc1 = {}
@@ -394,7 +455,7 @@ results_mc1 = {}
 # # Models to be applied
 # 
 
-# In[20]:
+# In[21]:
 
 
 from sklearn.svm import SVC
@@ -411,7 +472,7 @@ models = {
 # # Train and evaluate each model for the KC1 dataset
 # 
 
-# In[21]:
+# In[22]:
 
 
 for model_name, model in models.items():
@@ -422,7 +483,7 @@ for model_name, model in models.items():
 
 # # Train and evaluate each model for the MW1 dataset
 
-# In[22]:
+# In[23]:
 
 
 for model_name, model in models.items():
@@ -433,7 +494,7 @@ for model_name, model in models.items():
 
 # # Train and evaluate each model for the PC5 dataset
 
-# In[23]:
+# In[24]:
 
 
 for model_name, model in models.items():
@@ -444,7 +505,7 @@ for model_name, model in models.items():
 
 # # Train and evaluate each model for the MC1 dataset
 
-# In[24]:
+# In[25]:
 
 
 for model_name, model in models.items():
@@ -455,19 +516,13 @@ for model_name, model in models.items():
 
 # # Convert results to DataFrame for easy comparison
 
-# In[25]:
+# In[26]:
 
 
 results_kc1_df = pd.DataFrame(results_kc1, index=['Precision', 'Recall', 'F1 Score', 'MSE', 'R2 Score'])
 results_mw1_df = pd.DataFrame(results_mw1, index=['Precision', 'Recall', 'F1 Score', 'MSE', 'R2 Score'])
 results_pc5_df = pd.DataFrame(results_pc5, index=['Precision', 'Recall', 'F1 Score', 'MSE', 'R2 Score'])
 results_mc1_df = pd.DataFrame(results_mc1, index=['Precision', 'Recall', 'F1 Score', 'MSE', 'R2 Score'])
-
-
-# print("KC1 Dataset Results:\n", results_kc1_df)
-# print("\nMW1 Dataset Results:\n", results_mw1_df)
-# print("\nPC1 Dataset Results:\n", results_pc5_df)
-# print("\nMC1 Dataset Results:\n", results_mc1_df)
 
 # Print results in tabular form
 print("KC1 Dataset Results:")
@@ -486,52 +541,280 @@ print(results_mc1_df.to_markdown())
 # # Plot the comparison of F1 Score for all 4 datasets
 # 
 
-# In[26]:
+# In[41]:
 
 
+import numpy as np
+import matplotlib.pyplot as plt
+
+# List of models
+models = results_kc1_df.columns.tolist()
+
+# Bar width
+bar_width = 0.1
+x = np.arange(len(models))  # X-axis locations for the groups
+
+# Create the plot
 fig, ax = plt.subplots(figsize=(10, 6))
-results_kc1_df.loc['F1 Score'].plot(kind='bar', color='b', alpha=0.5, ax=ax, position=1, width=0.4, label='CM1 F1 Score')
-results_mw1_df.loc['F1 Score'].plot(kind='bar', color='r', alpha=0.5, ax=ax, position=0, width=0.4, label='MW1 F1 Score')
-results_pc5_df.loc['F1 Score'].plot(kind='bar', color='g', alpha=0.5, ax=ax, position=0, width=0.4, label='PC5 F1 Score')
-results_mc1_df.loc['F1 Score'].plot(kind='bar', color='y', alpha=0.5, ax=ax, position=0, width=0.4, label='MC1 F1 Score')
 
-plt.title("Comparison of F1 Scores for Different Models ")
-plt.ylabel('F1 Score')
-plt.legend()
+# Plot each dataset with offset for grouped bars
+ax.bar(x - 1.5 * bar_width, results_kc1_df.loc['F1 Score'], width=bar_width, label='KC1', color='b', alpha=0.7)
+ax.bar(x - 0.5 * bar_width, results_mw1_df.loc['F1 Score'], width=bar_width, label='MW1', color='r', alpha=0.7)
+ax.bar(x + 0.5 * bar_width, results_pc5_df.loc['F1 Score'], width=bar_width, label='PC5', color='g', alpha=0.7)
+ax.bar(x + 1.5 * bar_width, results_mc1_df.loc['F1 Score'], width=bar_width, label='MC1', color='y', alpha=0.7)
+
+# X-axis setup
+ax.set_xticks(x)
+ax.set_xticklabels(models, rotation=0)
+ax.set_ylabel('F1 Score')
+ax.set_title('Comparison of F1 Scores for Different Models')
+ax.legend(loc='upper left')
+
+plt.tight_layout()
 plt.show()
 
 
 # # Plot the comparison of Precision, Recall, F1 Score, MSE, and R2 Score for all 4 datasets
 # 
 
-# In[27]:
+# In[46]:
 
+
+import numpy as np
 
 # Define the metrics and datasets
 metrics = ['Precision', 'Recall', 'F1 Score', 'MSE', 'R2 Score']
 datasets = {
-    'KC1': results_kc1_df,
-    'MW1': results_mw1_df,
-    'PC5': results_pc5_df,
-    'MC1': results_mc1_df
+    'Dataset 1': results_kc1_df,
+    'Dataset 2': results_mw1_df,
+    'Dataset 3': results_pc5_df,
+    'Dataset 4': results_mc1_df
 }
 
 # Define colors for each dataset
 colors = {
-    'KC1': 'b',
-    'MW1': 'r',
-    'PC5': 'g',
-    'MC1': 'y'
+    'Dataset 1': 'b',
+    'Dataset 2': 'r',
+    'Dataset 3': 'g',
+    'Dataset 4': 'y'
 }
 
-# Plot the comparison of each metric for all datasets
+# Plot each metric
 for metric in metrics:
-    fig, ax = plt.subplots(figsize=(10, 6))
-    for dataset_name, results_df in datasets.items():
-        results_df.loc[metric].plot(kind='bar', ax=ax, alpha=0.6, color=colors[dataset_name], label=f'{dataset_name} {metric}')
+    fig, ax = plt.subplots(figsize=(12, 6))
+    model_names = results_kc1_df.columns.tolist()  # Assumes same columns for all datasets
+    x = np.arange(len(model_names))  # the label locations
+    bar_width = 0.2
 
-    plt.title(f"Comparison of {metric} for Different Models")
-    plt.ylabel(metric)
-    plt.legend()
+    for i, (dataset_name, results_df) in enumerate(datasets.items()):
+        values = results_df.loc[metric]
+        offset = (i - 1.5) * bar_width  # Position bars side by side
+        ax.bar(x + offset, values, width=bar_width, color=colors[dataset_name], alpha=0.7, label=dataset_name)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(model_names, rotation=0)
+    ax.set_ylabel(metric)
+    ax.set_title(f"Comparison of {metric} for Different Models")
+    ax.legend(loc='upper left')
+    plt.tight_layout()
     plt.show()
+
+
+# In[29]:
+
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Define metric data for each dataset
+metrics = ['Precision', 'Recall', 'F1 Score']
+model_names = ['Logistic Regression', 'SVM Regression', 'Decision Tree Classification', 'Random Forest Classification']
+
+# Create DataFrames for each dataset
+kc1_data = {
+    'Logistic Regression': [0.80115, 0.838863, 0.801022],
+    'SVM Regression': [0.769925, 0.831754, 0.775415],
+    'Decision Tree Classification': [0.817476, 0.831754, 0.823245],
+    'Random Forest Classification': [0.831596, 0.853081, 0.834089]
+}
+mw1_data = {
+    'Logistic Regression': [0.854701, 0.888889, 0.945534],
+    'SVM Regression': [0.879825, 0.888889, 0.884206],
+    'Decision Tree Classification': [0.901235, 0.901235, 0.901235],
+    'Random Forest Classification': [0.854701, 0.888889, 0.945534]
+}
+pc5_data = {
+    'Logistic Regression': [0.965785, 0.970913, 0.967578],
+    'SVM Regression': [0.964001, 0.971495, 0.962171],
+    'Decision Tree Classification': [0.976724, 0.975567, 0.976104],
+    'Random Forest Classification': [0.973848, 0.97644, 0.974749]
+}
+mc1_data = {
+    'Logistic Regression': [0.994748, 0.99472, 0.992842],
+    'SVM Regression': [0.993704, 0.993664, 0.990506],
+    'Decision Tree Classification': [0.99285, 0.993136, 0.992988],
+    'Random Forest Classification': [0.992617, 0.993664, 0.993034]
+}
+
+# Convert to DataFrames
+kc1_df = pd.DataFrame(kc1_data, index=metrics)
+mw1_df = pd.DataFrame(mw1_data, index=metrics)
+pc5_df = pd.DataFrame(pc5_data, index=metrics)
+mc1_df = pd.DataFrame(mc1_data, index=metrics)
+
+# Function to plot heatmap
+def plot_heatmap(df, title):
+    corr = df.T.corr()  # Transpose and get correlation between models
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(corr, annot=True, cmap='coolwarm', fmt=".2f", square=True)
+    plt.title(title)
+    plt.show()
+
+# Plot heatmaps
+plot_heatmap(kc1_df, "KC1 Dataset - Correlation Heatmap (Precision, Recall, F1 Score)")
+plot_heatmap(mw1_df, "MW1 Dataset - Correlation Heatmap (Precision, Recall, F1 Score)")
+plot_heatmap(pc5_df, "PC5 Dataset - Correlation Heatmap (Precision, Recall, F1 Score)")
+plot_heatmap(mc1_df, "MC1 Dataset - Correlation Heatmap (Precision, Recall, F1 Score)")
+
+
+# # ROC Curve & AUC
+
+# In[45]:
+
+
+def plot_roc_curves(dataframes, target_column='Defective'):
+    plt.figure(figsize=(16, 12))
+
+    for i, (name, df) in enumerate(dataframes.items(), 1):
+        df = df.dropna(subset=[target_column])
+        X = df.drop(columns=[target_column])
+        y = df[target_column]
+
+        # Impute & scale
+        imputer = SimpleImputer(strategy='mean')
+        X_imputed = imputer.fit_transform(X)
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X_imputed)
+
+        # Train-test split
+        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42)
+
+        # Random Forest classifier
+        clf = RandomForestClassifier(random_state=42)
+        clf.fit(X_train, y_train)
+
+        # ROC values
+        y_prob = clf.predict_proba(X_test)[:, 1]
+        fpr, tpr, _ = roc_curve(y_test, y_prob)
+        roc_auc = auc(fpr, tpr)
+
+        # 🔵 Print AUC value
+        print(f"AUC for {name}: {roc_auc:.4f}")
+
+        # Plot
+        plt.subplot(2, 2, i)
+        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
+        plt.plot([0, 1], [0, 1], 'b--', lw=1)  # Blue dotted diagonal line
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title(f'ROC Curve - {name}')
+        plt.legend(loc="lower right")
+        plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
+dataframes = {
+    "Dataset 1": pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-KC1.csv"),
+    "Dataset 2": pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-MW1.csv"),
+    "Dataset 3": pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-PC5.csv"),
+    "Dataset 4": pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-MC1.csv")
+}
+
+plot_roc_curves(dataframes)
+
+
+# # Violin Curve
+
+# In[31]:
+
+
+def plot_violin_curves(dataframes, target_column='Defective', selected_features=None):
+    for name, df in dataframes.items():
+        print(f"\n🔍 Plotting violin plots for {name}")
+        df = df.dropna(subset=[target_column])
+
+        if selected_features is None:
+            # Automatically select a few numeric columns excluding the target
+            selected_features = df.drop(columns=[target_column]).select_dtypes(include='number').columns[:3]
+
+        for feature in selected_features:
+            plt.figure(figsize=(8, 5))
+            sns.violinplot(x=target_column, y=feature, data=df, palette='Set2', inner='box')
+            plt.title(f"Violin Plot of '{feature}' by '{target_column}' - {name}")
+            plt.xlabel('Defective')
+            plt.ylabel(feature)
+            plt.grid(True)
+            plt.tight_layout()
+            plt.show()
+dataframes = {
+    "KC1": pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-KC1.csv"),
+    "MW1": pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-MW1.csv"),
+    "PC5": pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-PC5.csv"),
+    "MC1": pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-MC1.csv")
+}
+
+plot_violin_curves(dataframes)
+
+
+# # Confusion Matrix
+
+# In[42]:
+
+
+def plot_confusion_matrices(dataframes, target_column='Defective'):
+    for name, df in dataframes.items():
+        print(f"\n📊 Confusion Matrix for {name}")
+        df = df.dropna(subset=[target_column])
+        X = df.drop(columns=[target_column])
+        y = df[target_column]
+
+        # Impute and scale
+        imputer = SimpleImputer(strategy='mean')
+        X_imputed = imputer.fit_transform(X)
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X_imputed)
+
+        # Train-test split
+        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42)
+
+        # Train classifier
+        clf = RandomForestClassifier(random_state=42)
+        clf.fit(X_train, y_train)
+
+        # Predict
+        y_pred = clf.predict(X_test)
+
+        # Compute confusion matrix
+        cm = confusion_matrix(y_test, y_pred)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=clf.classes_)
+        disp.plot(cmap='Blues')
+        plt.title(f"Confusion Matrix - {name}")
+        plt.grid(False)
+        plt.show()
+dataframes = {
+    "KC1": pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-KC1.csv"),
+    "MW1": pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-MW1.csv"),
+    "PC5": pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-PC5.csv"),
+    "MC1": pd.read_csv(r"E:\kiit\Project for 4th sem\Data\csv_result-MC1.csv")
+}
+
+plot_confusion_matrices(dataframes)
+
+
+# In[ ]:
+
+
+
 
